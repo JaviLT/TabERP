@@ -868,8 +868,32 @@ function upsertDb(p){const i=S.dbProjects.findIndex(x=>x.id===p.id);if(i>=0)S.db
 function openPending(){if(S.pendingOpen&&getP(S.pendingOpen)){const id=S.pendingOpen;S.pendingOpen=null;openDetail(id);}}
 function showConfigError(msg){$('#login').hidden=true;$('#kpis').innerHTML='';$('#view').innerHTML=`<div class="empty"><h3>Falta configuración</h3><p>${esc(msg)}</p></div>`;}
 function showLogin(){
-  $('#login').hidden=false;$('#userBox').textContent='';$('#btnLogout').hidden=true;
-  setTimeout(()=>{const e=$('#lEmail');if(e&&!e.value)e.focus();},50);
+  $('#login').hidden=false;$('#loginForm').hidden=false;$('#pwdForm').hidden=true;
+  ['#btnLogout','#btnPwd','#btnUsers'].forEach(s=>$(s).hidden=true);$('#userBox').textContent='';
+  setTimeout(()=>{const e=$('#lUser');if(e&&!e.value)e.focus();},50);
+}
+let pwdForced=false;
+function showPwd(forced,user){
+  pwdForced=forced;
+  $('#login').hidden=false;$('#loginForm').hidden=true;$('#pwdForm').hidden=false;
+  $('#pErr').hidden=true;$('#pNew').value='';$('#pNew2').value='';
+  $('#pwdTitle').textContent=forced?'Cambia tu contraseña':'Cambiar mi contraseña';
+  $('#pwdIntro').textContent=forced?'Estás entrando con una contraseña temporal. Elige una nueva para continuar.':'Escribe tu nueva contraseña.';
+  $('#pBtn').textContent=forced?'Guardar y entrar':'Guardar';
+  $('#pCancel').textContent=forced?'Salir':'Cancelar';
+  const md=(user&&user.user_metadata)||{};$('#pwdUser').value=md.usuario||'';
+  setTimeout(()=>$('#pNew').focus(),50);
+}
+function toEmail(u){u=u.trim().toLowerCase();return u.includes('@')?u:`${u}@${DOMINIO}`;}
+async function callFn(accion,extra){
+  const {data,error}=await sb.functions.invoke('usuarios',{body:Object.assign({accion},extra||{})});
+  if(error){
+    let m='No se pudo completar la operación. Inténtalo otra vez.';
+    try{const j=await error.context.json();if(j&&j.error)m=j.error;}
+    catch(e){if(/fetch|network|relay/i.test(error.message||''))m='No hay conexión con el servicio de usuarios. Revisa que la función "usuarios" esté publicada en Supabase.';}
+    throw new Error(m);
+  }
+  return data||{};
 }
 let currentUid=null;
 async function startData(user){
@@ -877,14 +901,15 @@ async function startData(user){
   currentUid=user.id;
   S.userId=user.id;
   const md=user.user_metadata||{};
-  S.userName=(md.nombre||md.full_name||md.name||user.email||'').trim();
-  $('#login').hidden=true;$('#userBox').textContent=S.userName;$('#btnLogout').hidden=false;
+  S.userName=(md.nombre||md.usuario||(user.email||'').split('@')[0]||'').trim();
+  $('#login').hidden=true;$('#userBox').textContent=S.userName;$('#btnLogout').hidden=false;$('#btnPwd').hidden=false;
   S.mode='db';S.loaded=false;render();
   loadTimer=setTimeout(()=>{if(!S.loaded)notice('slow','warn','La base de datos tarda en responder. El tablero se llenará en cuanto conteste.');},10000);
   try{
-    const [{data:ok},{data:nm}]=await Promise.all([sb.rpc('es_del_equipo'),sb.rpc('mi_nombre')]);
+    const [{data:ok},{data:nm},{data:adm}]=await Promise.all([sb.rpc('es_del_equipo'),sb.rpc('mi_nombre'),sb.rpc('soy_admin')]);
     if(ok===false)notice('noteam','warn','Tu usuario no está dado de alta en el equipo, así que no puedes ver ni guardar proyectos. Pide al administrador que te agregue.');
     if(nm){S.userName=nm;$('#userBox').textContent=nm;}
+    S.isAdmin=adm===true;$('#btnUsers').hidden=!S.isAdmin;
   }catch(e){}
   try{
     const {data,error}=await sb.from('proyectos').select('id,data').order('creado_en',{ascending:true});
@@ -912,26 +937,112 @@ async function stopData(){
   currentUid=null;
   if(channel){try{await sb.removeChannel(channel);}catch(e){}channel=null;}
   S.dbProjects.length=0;if(!S.demo)S.projects=S.dbProjects;
-  S.loaded=false;S.mode='loading';S.userId=null;S.userName='';
-  closeDetail();Object.keys(NOTICES).forEach(clearNotice);
+  S.loaded=false;S.mode='loading';S.userId=null;S.userName='';S.isAdmin=false;
+  closeDetail();if($('#usrDlg').open)$('#usrDlg').close();Object.keys(NOTICES).forEach(clearNotice);
   render();
 }
+function handleSession(session){
+  if(!session||!session.user){stopData();showLogin();return;}
+  const u=session.user;
+  if(u.app_metadata&&u.app_metadata.debe_cambiar){if(currentUid)stopData();showPwd(true,u);return;}
+  if(!$('#pwdForm').hidden&&!pwdForced)return; // cambio voluntario en curso
+  startData(u);
+}
+
+/* ---------- Usuarios (solo administradores) ---------- */
+function showTemp(usuario,pass){
+  const box=$('#uTemp');
+  box.innerHTML=`<p>Contraseña temporal de <b>${esc(usuario)}</b>:</p>
+    <div class="pw"><code id="uTempPw">${esc(pass)}</code><button class="btn btn-sm" type="button" id="uCopy">Copiar</button></div>
+    <small>Entrégasela en persona o por un medio privado. No se vuelve a mostrar; al entrar se le pedirá cambiarla.</small>`;
+  box.hidden=false;
+  $('#uCopy').onclick=async()=>{try{await navigator.clipboard.writeText(pass);$('#uCopy').textContent='Copiada';}catch(e){$('#uCopy').textContent='Selecciónala y cópiala';}};
+}
+function renderUsers(list){
+  const box=$('#uList');
+  if(!list.length){box.innerHTML='<p class="hint u-hint">Todavía no hay usuarios.</p>';return;}
+  box.innerHTML=`<div class="u-table-wrap"><table class="u-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead><tbody>
+    ${list.map(u=>`<tr><td><b>${esc(u.usuario)}</b> ${u.es_admin?'<span class="tag tag-admin">Admin</span>':''}</td><td>${esc(u.nombre||'')}</td>
+      <td>${u.debe_cambiar?'<span class="tag tag-warn">Contraseña temporal</span>':'<span class="tag tag-ok">Activo</span>'}</td>
+      <td>${u.ultimo_acceso?esc(fmtDT(u.ultimo_acceso)):'Nunca'}</td>
+      <td><div class="acts">${u.user_id===S.userId?'<span class="hint u-hint" style="margin:0">Tú</span>':`<button class="btn btn-sm" type="button" data-u-reset="${esc(u.user_id)}" data-u-name="${esc(u.usuario)}">Nueva temporal</button><button class="btn btn-sm btn-danger" type="button" data-u-del="${esc(u.user_id)}" data-u-name="${esc(u.usuario)}">Dar de baja</button>`}</div></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+async function loadUsers(){
+  const box=$('#uList');box.innerHTML='<p class="hint u-hint">Cargando usuarios…</p>';
+  try{const r=await callFn('listar');renderUsers(r.usuarios||[]);}
+  catch(e){box.innerHTML='';$('#uErr').textContent=e.message;$('#uErr').hidden=false;}
+}
+function bindUsers(){
+  const dlg=$('#usrDlg');
+  $('#btnUsers').addEventListener('click',()=>{$('#uErr').hidden=true;$('#uTemp').hidden=true;$('#uForm').reset();dlg.showModal();loadUsers();});
+  $('#uClose').addEventListener('click',()=>dlg.close());
+  dlg.addEventListener('close',()=>{$('#uTemp').innerHTML='';$('#uTemp').hidden=true;});
+  $('#uForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const f=e.target,usuario=f.usuario.value.trim().toLowerCase(),nombre=f.nombre.value.trim(),err=$('#uErr'),btn=$('#uBtn');
+    err.hidden=true;$('#uTemp').hidden=true;
+    if(!/^[a-z0-9][a-z0-9._-]{2,19}$/.test(usuario)){err.textContent='Usuario no válido: de 3 a 20 caracteres; solo letras minúsculas, números, punto, guion o guion bajo.';err.hidden=false;f.usuario.focus();return;}
+    if(!nombre){err.textContent='Escribe el nombre de la persona.';err.hidden=false;f.nombre.focus();return;}
+    btn.disabled=true;btn.textContent='Creando…';
+    try{const r=await callFn('crear',{usuario,nombre,es_admin:f.es_admin.checked});f.reset();showTemp(r.usuario,r.temporal);loadUsers();}
+    catch(x){err.textContent=x.message;err.hidden=false;}
+    btn.disabled=false;btn.textContent='Crear usuario';
+  });
+  $('#uList').addEventListener('click',async e=>{
+    const rs=e.target.closest('[data-u-reset]'),dl=e.target.closest('[data-u-del]'),err=$('#uErr');
+    if(!rs&&!dl)return;
+    err.hidden=true;
+    if(rs){
+      const name=rs.dataset.uName;
+      if(!await confirmAsk(`¿Generar una contraseña temporal nueva para “${name}”? La actual deja de servir y tendrá que cambiarla al entrar.`,'Generar temporal'))return;
+      try{const r=await callFn('restablecer',{user_id:rs.dataset.uReset});showTemp(r.usuario,r.temporal);loadUsers();}
+      catch(x){err.textContent=x.message;err.hidden=false;}
+    }else{
+      const name=dl.dataset.uName;
+      if(!await confirmAsk(`¿Dar de baja a “${name}”? Ya no podrá entrar al tablero. Sus proyectos y notas se conservan.`,'Dar de baja'))return;
+      try{await callFn('baja',{user_id:dl.dataset.uDel});$('#uTemp').hidden=true;loadUsers();}
+      catch(x){err.textContent=x.message;err.hidden=false;}
+    }
+  });
+}
+
 function bindLogin(){
   $('#loginForm').addEventListener('submit',async e=>{
     e.preventDefault();
-    const em=$('#lEmail').value.trim(),pw=$('#lPass').value,err=$('#lErr'),btn=$('#lBtn');
+    const us=$('#lUser').value.trim(),pw=$('#lPass').value,err=$('#lErr'),btn=$('#lBtn');
     err.hidden=true;
-    if(!em||!pw){err.textContent='Escribe tu correo y tu contraseña.';err.hidden=false;return;}
+    if(!us||!pw){err.textContent='Escribe tu usuario y tu contraseña.';err.hidden=false;return;}
     btn.disabled=true;btn.textContent='Entrando…';
     try{
-      const {error}=await sb.auth.signInWithPassword({email:em,password:pw});
-      if(error){err.textContent=/invalid/i.test(error.message)?'Correo o contraseña incorrectos.':(/fetch|network/i.test(error.message)?'No hay conexión con Supabase. Revisa tu internet o la URL en config.js.':'No se pudo iniciar sesión: '+error.message);err.hidden=false;}
+      const {error}=await sb.auth.signInWithPassword({email:toEmail(us),password:pw});
+      if(error){err.textContent=/invalid/i.test(error.message)?'Usuario o contraseña incorrectos.':(/fetch|network/i.test(error.message)?'No hay conexión con Supabase. Revisa tu internet o la URL en config.js.':'No se pudo iniciar sesión: '+error.message);err.hidden=false;}
       else $('#lPass').value='';
     }catch(x){err.textContent='No hay conexión con el servidor. Inténtalo de nuevo.';err.hidden=false;}
     btn.disabled=false;btn.textContent='Entrar';
   });
+  $('#pwdForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const a=$('#pNew').value,b=$('#pNew2').value,err=$('#pErr'),btn=$('#pBtn');
+    err.hidden=true;
+    const bad=a.length<8?'La contraseña debe tener al menos 8 caracteres.':(!/[A-Za-z]/.test(a)||!/\d/.test(a))?'La contraseña debe tener letras y números.':(a!==b?'Las dos contraseñas no coinciden.':'');
+    if(bad){err.textContent=bad;err.hidden=false;return;}
+    btn.disabled=true;const old=btn.textContent;btn.textContent='Guardando…';
+    try{
+      await callFn('cambiar_password',{nueva:a});
+      $('#pNew').value='';$('#pNew2').value='';
+      const wasForced=pwdForced;pwdForced=false;
+      $('#pwdForm').hidden=true;
+      await sb.auth.refreshSession();   // trae la sesión ya sin la marca de contraseña temporal
+      if(!wasForced){$('#login').hidden=true;flash('pwd','Tu contraseña se actualizó.');}
+    }catch(x){err.textContent=x.message;err.hidden=false;}
+    btn.disabled=false;btn.textContent=old;
+  });
+  $('#pCancel').addEventListener('click',()=>{if(pwdForced)sb.auth.signOut();else{$('#pwdForm').hidden=true;$('#login').hidden=true;}});
+  $('#btnPwd').addEventListener('click',async()=>{const {data}=await sb.auth.getUser();showPwd(false,data&&data.user);});
   $('#btnLogout').addEventListener('click',()=>{if(S.demo)stopDemo();sb.auth.signOut();});
 }
+let DOMINIO='tablero-erp.local';
 async function init(){
   bind();applyWriteMode();
   const h=decodeURIComponent((location.hash||'').slice(1));if(VIEWS.includes(h))S.view=h;else if(h.startsWith('proyecto-'))S.pendingOpen=h.slice(9);
@@ -939,14 +1050,13 @@ async function init(){
   render();
   const cfg=window.TABLERO_CONFIG||{};
   const url=String(cfg.supabaseUrl||'').trim(),key=String(cfg.supabaseKey||'').trim();
+  if(cfg.dominioUsuarios)DOMINIO=String(cfg.dominioUsuarios).trim().toLowerCase();
   if(!url||!key||url.includes('TU-PROYECTO')||key.includes('TU_LLAVE')){showConfigError('Edita config.js con la URL del proyecto y la llave publicable de Supabase (ver README).');return;}
   if(isSecretKey(key)){showConfigError('config.js tiene una llave SECRETA. Quítala de inmediato, genera una nueva en Supabase y usa solo la llave publicable.');return;}
   if(!window.supabase||!window.supabase.createClient){showConfigError('No se pudo cargar la librería de Supabase. Revisa tu conexión a internet y recarga.');return;}
   sb=window.supabase.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
-  bindLogin();
-  sb.auth.onAuthStateChange((event,session)=>{
-    setTimeout(()=>{if(session&&session.user)startData(session.user);else{stopData();showLogin();}},0);
-  });
+  bindLogin();bindUsers();
+  sb.auth.onAuthStateChange((event,session)=>{setTimeout(()=>handleSession(session),0);});
 }
 init();
 })();

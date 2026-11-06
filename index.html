@@ -24,15 +24,30 @@
       <p>Equipo ERP</p>
     </header>
     <form id="loginForm" novalidate>
-      <label>Correo
-        <input id="lEmail" type="email" autocomplete="username" required>
+      <label>Usuario
+        <input id="lUser" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="60" required>
       </label>
       <label>Contraseña
         <input id="lPass" type="password" autocomplete="current-password" required>
       </label>
       <p class="err" id="lErr" hidden></p>
       <button class="btn btn-primary" id="lBtn" type="submit">Entrar</button>
-      <p class="hint">¿No tienes acceso o olvidaste tu contraseña? Pídelo al administrador del tablero.</p>
+      <p class="hint">¿No tienes usuario u olvidaste tu contraseña? Pídelo al administrador del tablero.</p>
+    </form>
+    <form id="pwdForm" novalidate hidden>
+      <h2 id="pwdTitle">Cambia tu contraseña</h2>
+      <p class="hint" id="pwdIntro">Estás entrando con una contraseña temporal. Elige una nueva para continuar.</p>
+      <input type="text" id="pwdUser" autocomplete="username" hidden>
+      <label>Nueva contraseña
+        <input id="pNew" type="password" autocomplete="new-password" maxlength="72" required>
+      </label>
+      <label>Confírmala
+        <input id="pNew2" type="password" autocomplete="new-password" maxlength="72" required>
+      </label>
+      <p class="hint">Mínimo 8 caracteres, con letras y números.</p>
+      <p class="err" id="pErr" hidden></p>
+      <button class="btn btn-primary" id="pBtn" type="submit">Guardar y entrar</button>
+      <button class="btn btn-ghost" id="pCancel" type="button">Cancelar</button>
     </form>
   </div>
 </section>
@@ -50,6 +65,8 @@
     <div class="top-actions">
       <span class="save-state" id="saveState" aria-live="polite"></span>
       <span class="user-box" id="userBox"></span>
+      <button class="btn btn-sm btn-outline-light" id="btnUsers" type="button" hidden>Usuarios</button>
+      <button class="btn btn-sm btn-outline-light" id="btnPwd" type="button" hidden>Contraseña</button>
       <button class="btn btn-sm btn-outline-light" id="btnLogout" type="button" hidden>Salir</button>
       <button class="btn btn-light w-only" id="btnNew" type="button">Nuevo proyecto</button>
     </div>
@@ -167,6 +184,26 @@
       <button class="btn btn-primary" type="submit">Registrar mejora</button>
     </div>
   </form>
+</dialog>
+
+<dialog class="form users" id="usrDlg" aria-labelledby="uTitle">
+  <div class="u-wrap">
+    <div class="u-head"><h2 id="uTitle">Usuarios del tablero</h2><button class="btn btn-ghost btn-sm" type="button" id="uClose">Cerrar</button></div>
+    <form id="uForm" class="u-form" novalidate autocomplete="off">
+      <label>Usuario corto
+        <input name="usuario" maxlength="20" autocapitalize="none" spellcheck="false" placeholder="ej. jperez">
+      </label>
+      <label>Nombre
+        <input name="nombre" maxlength="80" placeholder="Nombre y apellido">
+      </label>
+      <label class="u-check"><input type="checkbox" name="es_admin"> Administrador</label>
+      <button class="btn btn-primary" type="submit" id="uBtn">Crear usuario</button>
+    </form>
+    <p class="hint u-hint">De 3 a 20 caracteres: letras minúsculas, números, punto, guion o guion bajo. Se genera una contraseña temporal que la persona cambia al entrar por primera vez.</p>
+    <p class="err" id="uErr" hidden></p>
+    <div class="u-temp" id="uTemp" hidden></div>
+    <div id="uList"></div>
+  </div>
 </dialog>
 
 <dialog class="confirm" id="confirmDlg">
