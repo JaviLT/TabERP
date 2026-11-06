@@ -1,6 +1,10 @@
 (function(){
 "use strict";
 
+/* Versión del tablero: súbela en cada entrega (y en la etiqueta app-version de index.html) */
+const APP_VERSION='1.1.1';
+window.TABLERO_VERSION=APP_VERSION;
+
 /* ---------- Catálogos ---------- */
 const ESTADOS=[
   {k:'espera',l:'En espera',v:'--st-espera'},
@@ -1043,7 +1047,20 @@ function bindLogin(){
   $('#btnLogout').addEventListener('click',()=>{if(S.demo)stopDemo();sb.auth.signOut();});
 }
 let DOMINIO='tablero-erp.local';
+function checkVersion(){
+  const meta=document.querySelector('meta[name="app-version"]');
+  const page=meta?meta.content:'(sin versión)';
+  const txt=page===APP_VERSION?`Versión ${APP_VERSION}`:`Versión de la página ${page}, versión del código ${APP_VERSION}`;
+  document.querySelectorAll('[data-ver]').forEach(e=>e.textContent=txt);
+  try{console.info('Tablero de proyectos, versión '+APP_VERSION);}catch(e){}
+  if(page!==APP_VERSION){
+    showConfigError(`Se cargaron archivos de versiones distintas (página ${page}, código ${APP_VERSION}). Sube los 5 archivos juntos y recarga con Ctrl + F5.`);
+    return false;
+  }
+  return true;
+}
 async function init(){
+  if(!checkVersion())return;
   bind();applyWriteMode();
   const h=decodeURIComponent((location.hash||'').slice(1));if(VIEWS.includes(h))S.view=h;else if(h.startsWith('proyecto-'))S.pendingOpen=h.slice(9);
   S.projects=S.dbProjects;

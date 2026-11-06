@@ -6,14 +6,15 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="robots" content="noindex, nofollow">
+<meta name="app-version" content="1.1.1">
 <title>Tablero de proyectos — Equipo ERP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=1.1.1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
-<script src="config.js"></script>
+<script src="config.js?v=1.1.1"></script>
 </head>
 <body>
 <section class="login" id="login" hidden aria-labelledby="loginTitle">
@@ -33,6 +34,7 @@
       <p class="err" id="lErr" hidden></p>
       <button class="btn btn-primary" id="lBtn" type="submit">Entrar</button>
       <p class="hint">¿No tienes usuario u olvidaste tu contraseña? Pídelo al administrador del tablero.</p>
+      <p class="ver" data-ver></p>
     </form>
     <form id="pwdForm" novalidate hidden>
       <h2 id="pwdTitle">Cambia tu contraseña</h2>
@@ -99,6 +101,7 @@
   <footer class="method">
     <p><b>Nota metodológica.</b> Fuente: proyectos capturados por el equipo en este tablero. Avance = fases hechas entre fases totales, sumando las fases generales y las de cada módulo; un módulo sin fases cuenta como una parte, hecha al terminarse. Un proyecto terminado o en mejora cuenta 100%. Fechas: el inicio se pone al arrancar (o a mano) y el cierre se asigna solo al marcar una fase como hecha, al completarse las fases de un módulo o al terminar el proyecto; no hay fechas compromiso. En el cronograma las barras abiertas crecen día con día hasta hoy y se cierran al terminar. Un proyecto en mejora conserva su línea original y cambia de color después de su fecha de cierre: punteada hasta que inicia la mejora y continua mientras dura. Duración promedio = días de inicio a cierre de los proyectos terminados. La carga por responsable cuenta cada módulo por separado. Los filtros de arriba aplican a todo.</p>
     <p id="genStamp"></p>
+    <p class="ver" data-ver></p>
   </footer>
 </main>
 
@@ -219,6 +222,6 @@
 <datalist id="dlResp"></datalist>
 <datalist id="dlTipo"></datalist>
 
-<script src="app.js"></script>
+<script src="app.js?v=1.1.1"></script>
 </body>
 </html>

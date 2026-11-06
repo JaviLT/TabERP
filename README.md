@@ -31,3 +31,15 @@ Tablero para registrar y seguir los proyectos del equipo: estados, módulos, fas
 ## Actualizar la página
 
 Sube los archivos modificados al repositorio; GitHub Pages publica los cambios en uno o dos minutos.
+
+## Versiones
+
+La versión aparece al pie del tablero y en la pantalla de inicio de sesión. Si dice "versiones distintas", el navegador mezcló archivos viejos y nuevos: sube los 5 archivos juntos y recarga con Ctrl + F5.
+
+| Versión | Cambios |
+|---|---|
+| 1.1.1 | Número de versión visible y aviso si se mezclan archivos de versiones distintas |
+| 1.1.0 | Usuarios cortos, contraseñas temporales con cambio obligatorio y panel de usuarios |
+| 1.0.0 | Primera versión en GitHub Pages con Supabase |
+
+Al hacer cambios, sube el número en `app.js` (`APP_VERSION`) y en `index.html` (etiqueta `app-version` y los `?v=` de los archivos).

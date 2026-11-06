@@ -357,3 +357,6 @@ body.readonly .w-only{display:none!important}
 :root[data-theme="dark"] .tag-admin{color:var(--accent)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tag-admin{color:var(--accent)}}
 @media (max-width:640px){.u-form{grid-template-columns:1fr 1fr}.u-form label:nth-child(2){grid-column:1/-1}}
+
+.ver{font-size:12px;color:var(--muted);font-weight:300;margin:0}
+.login-card .ver{text-align:center}
