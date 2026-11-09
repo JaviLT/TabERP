@@ -6,15 +6,15 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; base-uri 'self'; form-action 'self'; object-src 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="robots" content="noindex, nofollow">
-<meta name="app-version" content="1.1.1">
+<meta name="app-version" content="1.2.0">
 <title>Tablero de proyectos — Equipo ERP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=1.1.1">
+<link rel="stylesheet" href="styles.css?v=1.2.0">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
-<script src="config.js?v=1.1.1"></script>
+<script src="config.js?v=1.2.0"></script>
 </head>
 <body>
 <section class="login" id="login" hidden aria-labelledby="loginTitle">
@@ -209,6 +209,65 @@
   </div>
 </dialog>
 
+<dialog class="adj-dlg" id="adjDlg" aria-labelledby="adjTitle">
+  <div class="adj-top">
+    <div><h2 id="adjTitle">Adjuntar archivos</h2><p class="adj-sub" id="adjSub"></p></div>
+    <button class="btn btn-ghost btn-sm" type="button" id="adjClose">Cerrar</button>
+  </div>
+
+  <section class="bk-uploader" id="bk-uploader">
+    <div class="bk-head">
+      <div>
+        <h3>Subir archivos</h3>
+        <p>Jala el archivo hacia atrás, apunta con la línea punteada y suelta.</p>
+        <div class="bk-actions">
+          <button id="bk-btnBrowse" type="button">Explorar archivos</button>
+          <button id="bk-btnShot" type="button">Lanzar por mí</button>
+        </div>
+      </div>
+      <div class="bk-counter">Subidos <b id="bk-cnt">0</b></div>
+    </div>
+
+    <div class="bk-stage" id="bk-stage">
+      <div class="bk-zone" id="bk-zone">
+        <svg class="bk-up" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
+        <div class="bk-t">Suelta tus archivos aquí</div>
+        <div class="bk-s">o lanza el tiro</div>
+      </div>
+
+      <svg class="bk-hoop" id="bk-hoop" width="150" height="160" viewBox="0 0 150 160" aria-hidden="true">
+        <rect x="25" y="0" width="100" height="58" rx="2" fill="none" stroke="#993C1D" stroke-width="2"/>
+        <rect x="55" y="30" width="40" height="26" fill="none" stroke="#993C1D" stroke-width="2"/>
+        <g id="bk-net" stroke="#888780" stroke-width="1" fill="none" style="transform-origin:75px 70px">
+          <path d="M30 70 L50 125 M45 70 L58 125 M60 70 L66 125 M75 70 L75 125 M90 70 L84 125 M105 70 L92 125 M120 70 L100 125"/>
+          <path d="M32 82 Q75 92 118 82 M36 96 Q75 105 114 96 M42 110 Q75 118 108 110"/>
+        </g>
+        <ellipse cx="75" cy="68" rx="48" ry="7" fill="none" stroke="#D85A30" stroke-width="4"/>
+      </svg>
+
+      <svg class="bk-traj" id="bk-traj" aria-hidden="true"></svg>
+
+      <div class="bk-ball" id="bk-ball"></div>
+
+      <div class="bk-file" id="bk-file">
+        <div class="bk-doc"><b id="bk-ext">+</b></div>
+        <div class="bk-name" id="bk-fname">Elige un archivo</div>
+      </div>
+    </div>
+
+    <p class="bk-msg" id="bk-msg" aria-live="polite"></p>
+
+    <div class="bk-dock" id="bk-dock">
+      <div class="bk-icon" aria-hidden="true">&#128196;</div>
+      <div><div class="bk-n" id="bk-dName"></div><div class="bk-z" id="bk-dSize"></div></div>
+      <div class="bk-prog"><span class="bk-z" id="bk-st">Subiendo</span><div class="bk-bar"><div class="bk-fill" id="bk-fill"></div></div></div>
+      <div class="bk-ok" id="bk-ok"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></div>
+    </div>
+
+    <input type="file" id="bk-input" multiple>
+  </section>
+</dialog>
+
 <dialog class="confirm" id="confirmDlg">
   <div>
     <p id="cMsg"></p>
@@ -222,6 +281,7 @@
 <datalist id="dlResp"></datalist>
 <datalist id="dlTipo"></datalist>
 
-<script src="app.js?v=1.1.1"></script>
+<script src="canasta.js?v=1.2.0"></script>
+<script src="app.js?v=1.2.0"></script>
 </body>
 </html>

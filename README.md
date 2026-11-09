@@ -9,6 +9,7 @@ Tablero para registrar y seguir los proyectos del equipo: estados, módulos, fas
 | `index.html` | Estructura de la página |
 | `styles.css` | Estilos (estándar de imagen Zubex) |
 | `app.js` | Lógica del tablero, inicio de sesión y conexión con Supabase |
+| `canasta.js` | Subida de archivos con la canasta de básquetbol |
 | `config.js` | URL del proyecto de Supabase, llave publicable y dominio interno de usuarios |
 
 ## Usuarios
@@ -18,6 +19,10 @@ Tablero para registrar y seguir los proyectos del equipo: estados, módulos, fas
 - Al crear un usuario se genera una **contraseña temporal**. La primera vez que la persona entra, el tablero le pide cambiarla y no la deja ver nada hasta hacerlo.
 - Si alguien olvida su contraseña, el administrador le genera una **nueva temporal** desde el mismo panel.
 - Cualquiera puede cambiar su contraseña con el botón **Contraseña**.
+
+## Adjuntos
+
+Cada proyecto tiene una sección **Adjuntos** con el botón **Adjuntar**, que abre la canasta: se elige o arrastra el archivo y se lanza a la canasta para subirlo (o con **Lanzar por mí**). Los archivos se guardan en un espacio privado de Supabase Storage, de máximo 20 MB cada uno, y solo el equipo puede verlos o descargarlos. Al eliminar un proyecto se borran también sus archivos.
 
 ## Seguridad
 
@@ -34,10 +39,11 @@ Sube los archivos modificados al repositorio; GitHub Pages publica los cambios e
 
 ## Versiones
 
-La versión aparece al pie del tablero y en la pantalla de inicio de sesión. Si dice "versiones distintas", el navegador mezcló archivos viejos y nuevos: sube los 5 archivos juntos y recarga con Ctrl + F5.
+La versión aparece al pie del tablero y en la pantalla de inicio de sesión. Si dice "versiones distintas", el navegador mezcló archivos viejos y nuevos: sube los 6 archivos juntos y recarga con Ctrl + F5.
 
 | Versión | Cambios |
 |---|---|
+| 1.2.0 | Adjuntos por proyecto con la canasta de básquetbol (Supabase Storage) |
 | 1.1.1 | Número de versión visible y aviso si se mezclan archivos de versiones distintas |
 | 1.1.0 | Usuarios cortos, contraseñas temporales con cambio obligatorio y panel de usuarios |
 | 1.0.0 | Primera versión en GitHub Pages con Supabase |

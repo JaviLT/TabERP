@@ -2,7 +2,7 @@
 "use strict";
 
 /* Versión del tablero: súbela en cada entrega (y en la etiqueta app-version de index.html) */
-const APP_VERSION='1.1.1';
+const APP_VERSION='1.2.0';
 window.TABLERO_VERSION=APP_VERSION;
 
 /* ---------- Catálogos ---------- */
@@ -53,6 +53,18 @@ function fmtD(s){const d=parseD(s);if(!d)return '—';const o={day:'numeric',mon
 function fmtDT(isoStr){const d=new Date(isoStr);if(isNaN(d))return '';return d.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'})+', '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});}
 function ndays(a,b){return Math.max(0,Math.round((b-a)/DAY));}
 function nd(n){return `${n} ${n===1?'día':'días'}`;}
+const MAX_ADJ_MB=20,MAX_ADJ=MAX_ADJ_MB*1048576,BUCKET='adjuntos';
+function fmtSize(b){b=+b||0;return b>1048576?(b/1048576).toFixed(1)+' MB':Math.max(1,Math.round(b/1024))+' KB';}
+function extOf(n){const m=/\.([A-Za-z0-9]{1,5})$/.exec(n||'');return m?m[1].toUpperCase():'ARCH';}
+function safeName(n){return String(n||'archivo').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(-80)||'archivo';}
+function storageMsg(err){
+  const m=(err&&(err.message||err.error))||'';
+  if(/row-level security|unauthorized|permission/i.test(m))return 'no tienes permiso para manejar archivos';
+  if(/maximum allowed size|too large|413/i.test(m))return `pasa del tamaño máximo (${MAX_ADJ_MB} MB)`;
+  if(/bucket not found/i.test(m))return 'falta crear el espacio de adjuntos en Supabase';
+  if(/fetch|network/i.test(m))return 'no hay conexión con Supabase';
+  return m||'error desconocido';
+}
 function maxIso(list){const ds=list.map(parseD).filter(Boolean);return ds.length?iso(new Date(Math.max(...ds))):'';}
 function minIso(list){const ds=list.map(parseD).filter(Boolean);return ds.length?iso(new Date(Math.min(...ds))):'';}
 function estadoOf(o){return EST[o.estado]?o.estado:'espera';}
@@ -499,6 +511,55 @@ function moduleBlock(p,m){
     </div>
   </details>`;
 }
+function adjuntosBlock(p){
+  const list=arr(p.adjuntos).slice().sort((a,b)=>(b.subidoEn||'').localeCompare(a.subidoEn||''));
+  return `<div class="sec">
+    <div class="sec-h"><h3>Adjuntos</h3><span>${list.length?`${list.length} ${list.length===1?'archivo':'archivos'}`:'Documentos, evidencias y entregables'}</span><span class="sp"></span><button type="button" class="btn btn-sm btn-primary w-only" id="dAdj">Adjuntar</button></div>
+    ${list.length?`<ul class="adj-list">${list.map(a=>`<li class="adj"><span class="adj-ext">${esc(extOf(a.nombre))}</span>
+      <div class="adj-info"><b title="${esc(a.nombre)}">${esc(a.nombre)}</b><small>${esc(fmtSize(a.tamano))}, ${esc(fmtDT(a.subidoEn))}${a.autorNombre?', '+esc(a.autorNombre):''}</small></div>
+      <button type="button" class="btn btn-sm dl" data-adj-dl="${esc(a.id)}">Descargar</button>
+      <button type="button" class="x w-only" data-adj-del="${esc(a.id)}" aria-label="Eliminar ${esc(a.nombre)}">×</button></li>`).join('')}</ul>`:'<p style="color:var(--muted);font-size:14px;margin:0">Sin archivos adjuntos.</p>'}
+  </div>`;
+}
+function openAdjuntar(pid){
+  const p=getP(pid);if(!p||!S.canWrite)return;
+  S.adjProjectId=pid;
+  $('#adjTitle').textContent='Adjuntar archivos';
+  $('#adjSub').textContent=`A “${p.nombre||'Sin nombre'}”. Máximo ${MAX_ADJ_MB} MB por archivo.`;
+  if(window.BasketUploader)window.BasketUploader.reset();
+  $('#adjDlg').showModal();
+}
+/* Gancho del código de la canasta: sube el archivo real a Supabase Storage */
+window.onBasketUpload=async function(file){
+  if(!file)throw new Error('primero elige un archivo');
+  const pid=S.adjProjectId,p=getP(pid);
+  if(!p)throw new Error('el proyecto ya no existe');
+  if(file.size>MAX_ADJ)throw new Error(`pasa del tamaño máximo (${MAX_ADJ_MB} MB)`);
+  const id=uid('a');
+  const meta={id,nombre:file.name,tamano:file.size,tipo:file.type||'',subidoEn:new Date().toISOString(),autor:S.userId||'',autorNombre:S.userName||''};
+  if(S.demo){await new Promise(r=>setTimeout(r,500));meta.ruta='';meta.demo=true;}
+  else{
+    if(!sb)throw new Error('no hay conexión con Supabase');
+    meta.ruta=`${pid}/${id}-${safeName(file.name)}`;
+    const {error}=await sb.storage.from(BUCKET).upload(meta.ruta,file,{contentType:file.type||'application/octet-stream',upsert:false,cacheControl:'3600'});
+    if(error)throw new Error(storageMsg(error));
+  }
+  editProject(pid,q=>{q.adjuntos=arr(q.adjuntos).concat(meta);});
+};
+async function downloadAdj(pid,aid){
+  const a=arr((getP(pid)||{}).adjuntos).find(x=>x.id===aid);if(!a)return;
+  if(S.demo||!a.ruta){flash('adj','En el ejemplo los archivos no se guardan de verdad, así que no hay nada que descargar.');return;}
+  const {data,error}=await sb.storage.from(BUCKET).createSignedUrl(a.ruta,60,{download:a.nombre});
+  if(error||!data||!data.signedUrl){flash('adj','No se pudo descargar: '+storageMsg(error)+'.');return;}
+  const link=document.createElement('a');link.href=data.signedUrl;link.rel='noopener';link.target='_blank';
+  document.body.appendChild(link);link.click();link.remove();
+}
+async function deleteAdj(pid,aid){
+  const a=arr((getP(pid)||{}).adjuntos).find(x=>x.id===aid);if(!a)return;
+  if(!await confirmAsk(`¿Eliminar “${a.nombre}”? El archivo se borra y no se puede recuperar.`,'Eliminar archivo'))return;
+  if(!S.demo&&a.ruta){const {error}=await sb.storage.from(BUCKET).remove([a.ruta]);if(error){flash('adj','No se pudo eliminar: '+storageMsg(error)+'.');return;}}
+  editProject(pid,p=>{p.adjuntos=arr(p.adjuntos).filter(x=>x.id!==aid);});
+}
 function mejorasBlock(p){
   const list=arr(p.mejoras).slice().sort((a,b)=>(b.inicio||'').localeCompare(a.inicio||''));
   const canReg=closedP(p);
@@ -562,6 +623,8 @@ function renderDetail(force){
       <div class="sec-h"><h3>${ms.length?'Fases generales':'Fases'}</h3><span>${S.canWrite?'Toca el estado para avanzarla; el inicio y el fin se ponen solos':''}</span></div>
       ${phaseBlock(fases,'',ms.length?'Sin fases generales.':'Este proyecto aún no tiene fases.')}
     </div>
+
+    ${adjuntosBlock(p)}
 
     <div class="sec">
       <div class="sec-h"><h3>Bitácora</h3><span>Acuerdos, avances y pendientes</span></div>
@@ -697,6 +760,7 @@ function bind(){
   $('#pForm').addEventListener('submit',submitForm);
   $('#pForm').estado.addEventListener('change',syncCierreField);
   $('#mCancel').addEventListener('click',()=>$('#mejDlg').close());
+  $('#adjClose').addEventListener('click',()=>$('#adjDlg').close());
   $('#mForm').addEventListener('submit',submitMejora);
 
   const view=$('#view');
@@ -723,7 +787,7 @@ function bind(){
   dlg.addEventListener('click',e=>{if(e.target!==dlg)return;const r=dlg.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeDetail();});
   $('#dEstado').addEventListener('change',e=>{const id=S.openId,val=e.target.value;const p=getP(id);e.target.value=estadoOf(p);e.target.blur();moveTo(id,val);});
   $('#dEdit').addEventListener('click',()=>openForm(S.openId));
-  $('#dDelete').addEventListener('click',async()=>{const p=getP(S.openId);if(!p)return;if(await confirmAsk(`¿Eliminar “${p.nombre}”? Se borran también sus módulos, fases, mejoras y notas, y no se puede deshacer.`,'Eliminar proyecto')){const id=p.id;closeDetail();removeProject(id);}});
+  $('#dDelete').addEventListener('click',async()=>{const p=getP(S.openId);if(!p)return;const nAdj=arr(p.adjuntos).length;if(await confirmAsk(`¿Eliminar “${p.nombre}”? Se borran también sus módulos, fases, mejoras, notas${nAdj?` y ${nAdj} ${nAdj===1?'archivo adjunto':'archivos adjuntos'}`:''}, y no se puede deshacer.`,'Eliminar proyecto')){const id=p.id,rutas=arr(p.adjuntos).map(x=>x.ruta).filter(Boolean);closeDetail();removeProject(id);if(rutas.length&&sb&&!S.demo)sb.storage.from(BUCKET).remove(rutas).catch(()=>{});}});
   body.addEventListener('focusout',()=>{setTimeout(()=>{if(S.detailDirty&&!body.contains(document.activeElement))renderDetail();},0);});
   body.addEventListener('toggle',e=>{const d=e.target;if(d.matches&&d.matches('details.mod')){if(d.open)S.closedMods.delete(d.dataset.mod);else S.closedMods.add(d.dataset.mod);}},true);
 
@@ -732,6 +796,9 @@ function bind(){
     const id=S.openId;
     if(e.target.id==='dCloseProj'){editProject(id,p=>{const last=lastDoneDate(p);setEstado(p,'terminado');if(last)p.fechaCierre=last;if(!p.fechaInicio||parseD(p.fechaInicio)>parseD(p.fechaCierre))p.fechaInicio=p.fechaCierre;});return;}
     if(e.target.id==='dMejNew'){openMejora(id);return;}
+    if(e.target.id==='dAdj'){openAdjuntar(id);return;}
+    const adl=e.target.closest('[data-adj-dl]');if(adl){downloadAdj(id,adl.dataset.adjDl);return;}
+    const adel=e.target.closest('[data-adj-del]');if(adel){deleteAdj(id,adel.dataset.adjDel);return;}
     const st=e.target.closest('[data-fase-st]');
     if(st){const i=+st.dataset.faseSt,sc=scopeOf(st);editProject(id,p=>cyclePhase(p,sc,i));return;}
     const fd=e.target.closest('[data-fase-del]');
@@ -829,6 +896,7 @@ function demoData(){
         M('Aniversarios y cumpleaños','Carla','progreso',-50,null,[F('Generación de presentaciones','hecha',-50,-25),F('Ajustes de formato','curso',-5)]),
         M('Catálogo de empleados','Jorge','espera',null,null)
       ],
+      adjuntos:[{id:uid('a'),nombre:'Propuesta portal RRHH.pdf',tamano:2516582,tipo:'application/pdf',subidoEn:new Date(Date.now()-60*DAY).toISOString(),autorNombre:'Ana',ruta:'',demo:true},{id:uid('a'),nombre:'Flujo de vacaciones.xlsx',tamano:184320,tipo:'',subidoEn:new Date(Date.now()-25*DAY).toISOString(),autorNombre:'Ana',ruta:'',demo:true}],
       notas:[{id:uid('n'),texto:'RRHH validó el módulo de vacaciones; ya está en uso.',fecha:new Date(Date.now()-18*DAY).toISOString()}]}),
     P({nombre:'Reporte semanal de rechazos',responsable:'Ana',tipo:'Reporte',prioridad:'alta',estado:'progreso',fechaInicio:d(-30),descripcion:'Generar automáticamente el reporte de rechazos por línea cada lunes.',
       fases:[F('Levantamiento','hecha',-30,-22),F('Extracción de datos','hecha',-21,-8),F('Diseño del reporte','curso',-7),F('Liberación','pendiente')]}),
@@ -942,7 +1010,7 @@ async function stopData(){
   if(channel){try{await sb.removeChannel(channel);}catch(e){}channel=null;}
   S.dbProjects.length=0;if(!S.demo)S.projects=S.dbProjects;
   S.loaded=false;S.mode='loading';S.userId=null;S.userName='';S.isAdmin=false;
-  closeDetail();if($('#usrDlg').open)$('#usrDlg').close();Object.keys(NOTICES).forEach(clearNotice);
+  closeDetail();if($('#usrDlg').open)$('#usrDlg').close();if($('#adjDlg').open)$('#adjDlg').close();Object.keys(NOTICES).forEach(clearNotice);
   render();
 }
 function handleSession(session){
@@ -1054,7 +1122,7 @@ function checkVersion(){
   document.querySelectorAll('[data-ver]').forEach(e=>e.textContent=txt);
   try{console.info('Tablero de proyectos, versión '+APP_VERSION);}catch(e){}
   if(page!==APP_VERSION){
-    showConfigError(`Se cargaron archivos de versiones distintas (página ${page}, código ${APP_VERSION}). Sube los 5 archivos juntos y recarga con Ctrl + F5.`);
+    showConfigError(`Se cargaron archivos de versiones distintas (página ${page}, código ${APP_VERSION}). Sube todos los archivos juntos y recarga con Ctrl + F5.`);
     return false;
   }
   return true;
