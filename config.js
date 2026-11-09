@@ -16,7 +16,7 @@
   de datos ni ninguna contraseña de usuario. Si la página detecta una llave secreta, no arranca.
 */
 window.TABLERO_CONFIG = {
-  supabaseUrl: "https://TU-PROYECTO.supabase.co",
-  supabaseKey: "TU_LLAVE_PUBLICABLE",
+  supabaseUrl: "https://vjfqqbywfehgqquhmdbq.supabase.co",
+  supabaseKey: "sb_publishable_cfvDagnK9aQ1uUe_6mayLA_IsKOAecq",
   dominioUsuarios: "tablero-erp.local"
 };
